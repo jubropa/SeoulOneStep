@@ -1,66 +1,38 @@
 # SeoulOneStep
 ## Architecture
 ```mermaid
-flowchart LR
-    subgraph Devices["이용자 디바이스"]
-        App["모바일 산책 앱 (고령자)\n- 오늘의 산책 미션 보기\n- 산책 시간·거리 기록\n- 기분·통증·RPE·음성 입력"]
-        Care["가족·복지 담당자 화면\n(웹/모바일 대시보드)"]
+graph LR
+    subgraph User["고령자·가족·복지 담당자 (디바이스)"]
+        App["서울 한 걸음 앱"]
+        Dash["웹 대시보드 (복지 담당자용 모니터링 화면)"]
     end
 
-    subgraph Servers["중앙 서버 영역(클라우드)"]
-        APIServer["API 서버\n- 앱·대시보드와 통신하는 출입문"]
-        ServiceCore["서비스 서버\n- 산책 기록 처리\n- 마일리지 계산\n- 알림 트리거"]
-        AIEngine["AI 분석 엔진\n- 개인별 목표/강도 추천\n- 기분·통증·RPE 점수화\n- 안부 지수·이상 징후 계산"]
-        RouteEngine["목적지·경로 엔진\n- 고령친화 목적지 추천\n- 안전한 경로 검토"]
-        STT["음성 인식(STT)\n- 음성 일지 → 텍스트"]
-        LLMReport["요약 리포트 LLM\n- 1주일 안부 요약 문장 생성"]
+    subgraph Service["서울 한 걸음"]
+        API["API 서버"]
+        AI["AI 분석 서버 (목표 추천, 정서·RPE 분석, 이상 탐지)"]
+        LLM["리포트 요약 서버 (LLM 기반 주간 요약 생성)"]
+        DataStore["DB (사용자 정보, 산책 기록, AI 분석 결과, 로그)"]
     end
 
-    subgraph DBs["데이터 저장소 영역"]
-        MainDB["서비스 DB\n- 사용자 정보\n- 산책 기록\n- 마일리지·알림 이력"]
-        LogDB["분석/지표 DB\n- 점수·안부 지수\n- 이상 징후 패턴"]
-        FileStore["파일 저장소\n- 음성 원본\n- LLM 요약 결과 등"]
+    subgraph Ext["외부 연계 시스템"]
+        PublicAPI["공공데이터·지도 API (공원·산책로·보행로·기상)"]
+        Reward["지자체 마일리지/리워드"]
     end
 
-    subgraph External["외부 시스템"]
-        PublicData["공공데이터·지도 API\n- 공원·산책로·보행로\n- 도로·횡단보도 정보"]
-        Reward["지자체 포인트·제휴 리워드\n- 마일리지 연계 (선택)"]
-    end
+    App -->|"산책 데이터, 기분, RPE, 음성 업로드"| API
+    Dash -->|"조회 요청, 이상 알림 확인"| API
 
-    App -->|"산책 기록·기분·RPE·음성 전송"| APIServer
-    Care -->|"이용자 상태 조회·설정 변경"| APIServer
+    API -->|"미션, 경로, 마일리지, 요약 전달"| App
+    API -->|"안부 지수, 위험도, 주간 요약 전달"| Dash
 
-    APIServer --> ServiceCore
+    API -->|"사용자, 산책, 알림 데이터 저장/조회"| DataStore
+    AI -->|"분석에 필요한 데이터 조회"| DataStore
+    AI -->|"추천 목표, 위험도, 안부 지수 저장"| DataStore
+    LLM -->|"주간 요약, 코멘트 저장"| DataStore
 
-    ServiceCore --> AIEngine
-    ServiceCore --> RouteEngine
-    ServiceCore --> STT
-    ServiceCore --> LLMReport
+    AI -->|"지도, 환경 데이터 요청"| PublicAPI
+    PublicAPI -->|"보행로, 공원, 기상 정보"| AI
 
-    APIServer -->|"기본 정보 저장/조회"| MainDB
-
-    AIEngine -->|"활동·정서·RPE 분석 결과 저장"| LogDB
-    AIEngine -->|"필요한 사용자·산책 이력 조회"| MainDB
-
-    RouteEngine -->|"사용자·목적지 정보 조회"| MainDB
-
-    STT -->|"텍스트·파일 경로 저장"| FileStore
-    LLMReport -->|"요약 리포트 저장"| FileStore
-
-    ServiceCore -->|"마일리지·알림 이력 기록"| MainDB
-    ServiceCore -->|"지표·로그 기록"| LogDB
-
-    RouteEngine -->|"보행로·공원·도로 정보 요청"| PublicData
-    PublicData --> RouteEngine
-
-    ServiceCore -->|"마일리지 적립/사용 요청"| Reward
-    Reward -->|"적립/사용 결과"| ServiceCore
-
-    AIEngine -->|"오늘의 목표 시간·거리·강도"| ServiceCore
-    RouteEngine -->|"추천 목적지·경로 정보"| ServiceCore
-    LLMReport -->|"요약된 안부 코멘트"| ServiceCore
-
-    ServiceCore -->|"미션·경로·마일리지·피드백 전달"| APIServer
-    APIServer -->|"오늘의 미션·경로·마일리지\n간단 피드백"| App
-    APIServer -->|"안부 지수·위험도·주간 요약"| Care
+    API -->|"마일리지 적립/사용 요청"| Reward
+    Reward -->|"적립/사용 결과"| API
 ```
