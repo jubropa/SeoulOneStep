@@ -2,7 +2,7 @@
 ## Architecture
 ```mermaid
 graph LR
-    subgraph User["고령자·가족·복지 담당자 (디바이스)"]
+    subgraph User["디바이스"]
         App["서울 한 걸음 앱"]
         Dash["웹 대시보드 (복지 담당자용 모니터링 화면)"]
     end
